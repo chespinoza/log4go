@@ -5,6 +5,7 @@ package log4go
 import (
 	"fmt"
 	"os"
+	"sort"
 	"time"
 )
 
@@ -37,6 +38,9 @@ type FileLogWriter struct {
 
 	// Keep old logfiles (.001, .002, etc)
 	rotate bool
+
+	// Delete older files, keeping at most this many
+	keepNum int
 }
 
 // This is the FileLogWriter's output method
@@ -134,6 +138,11 @@ func (w *FileLogWriter) intRotate() error {
 
 	// If we are keeping log files, move it to the next available number
 	if w.rotate {
+		// Delete old files
+		if w.keepNum > 0 {
+			w.DeleteOldFiles()
+		}
+
 		_, err := os.Lstat(w.filename)
 		if err == nil { // file exists
 			// Find the next available number
@@ -174,6 +183,36 @@ func (w *FileLogWriter) intRotate() error {
 	w.maxsize_cursize = 0
 
 	return nil
+}
+
+// Delete old files from the log directory, keeping keepFiles of them
+func (w *FileLogWriter) DeleteOldFiles() {
+	// Find existing log files
+	var old_time []int
+	old_names := make(map[string]int)
+	for num := 1; num <= 999; num++ {
+		fname := w.filename + fmt.Sprintf(".%03d", num)
+		fi, err := os.Lstat(fname)
+		if err == nil {
+			modTime := int(fi.ModTime().Unix())
+			old_time = append(old_time, modTime)
+			old_names[fname] = modTime
+		}
+	}
+
+	// Find the kth oldest timestamp
+	if len(old_time) < w.keepNum {
+		return
+	}
+	sort.Ints(old_time)
+	last_time := old_time[len(old_time)-w.keepNum]
+
+	// Delete older files
+	for file, time := range old_names {
+		if time <= last_time {
+			os.Remove(file)
+		}
+	}
 }
 
 // Set the logging format (chainable).  Must be called before the first log
@@ -225,6 +264,17 @@ func (w *FileLogWriter) SetRotateDaily(daily bool) *FileLogWriter {
 func (w *FileLogWriter) SetRotate(rotate bool) *FileLogWriter {
 	//fmt.Fprintf(os.Stderr, "FileLogWriter.SetRotate: %v\n", rotate)
 	w.rotate = rotate
+	return w
+}
+
+// SetKeepNum changes whether older log files are deleted. Ignored unless
+// SetRotate is true. If this is 0, nothing will be deleted. If it's >0, then
+// the oldest log files will be deleted until only this number is left. Deletion
+// occurs when the log file is opened or rotated.
+func (w *FileLogWriter) SetKeepNum(keepNum int) *FileLogWriter {
+	//fmt.Fprintf(os.Stderr, "FileLogWriter.SetKeepNum: %v\n", keepNum)
+	w.keepNum = keepNum
+	w.DeleteOldFiles()
 	return w
 }
 
