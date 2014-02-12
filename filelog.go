@@ -187,6 +187,12 @@ func (w *FileLogWriter) intRotate() error {
 
 // Delete old files from the log directory, keeping keepFiles of them
 func (w *FileLogWriter) DeleteOldFiles() {
+
+	// Do nothing if we're keeping everything
+	if w.keepNum <= 0 {
+		return
+	}
+
 	// Find existing log files
 	var old_time []int
 	old_names := make(map[string]int)
@@ -201,7 +207,7 @@ func (w *FileLogWriter) DeleteOldFiles() {
 	}
 
 	// Find the kth oldest timestamp
-	if len(old_time) < w.keepNum {
+	if len(old_time) <= w.keepNum {
 		return
 	}
 	sort.Ints(old_time)
