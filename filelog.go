@@ -4,7 +4,10 @@ package log4go
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"regexp"
 	"sort"
 	"time"
 )
@@ -136,6 +139,12 @@ func (w *FileLogWriter) intRotate() error {
 		w.file.Close()
 	}
 
+	// Apply any time parameters in the filename
+	filename, err := Format(w.filename, time.Now())
+	if err != nil {
+		return err
+	}
+
 	// If we are keeping log files, move it to the next available number
 	if w.rotate {
 		// Delete old files
@@ -143,22 +152,22 @@ func (w *FileLogWriter) intRotate() error {
 			w.DeleteOldFiles()
 		}
 
-		_, err := os.Lstat(w.filename)
+		_, err := os.Lstat(filename)
 		if err == nil { // file exists
 			// Find the next available number
 			num := 1
 			fname := ""
 			for ; err == nil && num <= 999; num++ {
-				fname = w.filename + fmt.Sprintf(".%03d", num)
+				fname = filename + fmt.Sprintf(".%03d", num)
 				_, err = os.Lstat(fname)
 			}
 			// return error if the last file checked still existed
 			if err == nil {
-				return fmt.Errorf("Rotate: Cannot find free log number to rename %s\n", w.filename)
+				return fmt.Errorf("Rotate: Cannot find free log number to rename %s\n", filename)
 			}
 
 			// Rename the file to its newfound home
-			err = os.Rename(w.filename, fname)
+			err = os.Rename(filename, fname)
 			if err != nil {
 				return fmt.Errorf("Rotate: %s\n", err)
 			}
@@ -166,7 +175,7 @@ func (w *FileLogWriter) intRotate() error {
 	}
 
 	// Open the log file
-	fd, err := os.OpenFile(w.filename, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
+	fd, err := os.OpenFile(filename, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
 	if err != nil {
 		return err
 	}
@@ -193,16 +202,26 @@ func (w *FileLogWriter) DeleteOldFiles() {
 		return
 	}
 
+	// Construct a pattern to find files to delete
+	dir, file := filepath.Split(w.filename)
+	pattern := regexp.MustCompile(`%[a-zA-Z]`).ReplaceAll([]byte(file), []byte(`\d+`))
+	matcher, err := regexp.Compile(string(pattern) + `(?:\.\d{3})?`)
+	if err != nil {
+		return
+	}
+
 	// Find existing log files
+	fs, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return
+	}
 	var old_time []int
 	old_names := make(map[string]int)
-	for num := 1; num <= 999; num++ {
-		fname := w.filename + fmt.Sprintf(".%03d", num)
-		fi, err := os.Lstat(fname)
-		if err == nil {
-			modTime := int(fi.ModTime().Unix())
+	for _, f := range fs {
+		if matcher.Match([]byte(f.Name())) {
+			modTime := int(f.ModTime().Unix())
 			old_time = append(old_time, modTime)
-			old_names[fname] = modTime
+			old_names[filepath.Join(dir, f.Name())] = modTime
 		}
 	}
 
@@ -211,7 +230,7 @@ func (w *FileLogWriter) DeleteOldFiles() {
 		return
 	}
 	sort.Ints(old_time)
-	last_time := old_time[len(old_time)-w.keepNum]
+	last_time := old_time[len(old_time)-w.keepNum-1]
 
 	// Delete older files
 	for file, time := range old_names {
