@@ -5,6 +5,7 @@ package log4go
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -18,8 +19,13 @@ func init() {
 }
 
 // Wrapper for (*Logger).LoadConfiguration
-func LoadConfiguration(filename string) {
-	Global.LoadConfiguration(filename)
+func LoadConfiguration(filename string) error {
+	return Global.LoadConfiguration(filename)
+}
+
+// Wrapper for (*Logger).LoadConfigurationFromReader
+func LoadConfigurationFromReader(r io.Reader, filename string) error {
+	return Global.LoadConfigurationFromReader(r, filename)
 }
 
 // Wrapper for (*Logger).AddFilter
