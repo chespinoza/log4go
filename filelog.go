@@ -115,6 +115,7 @@ func NewFileLogWriter(fname string, rotate bool) *FileLogWriter {
 					fmt.Fprintf(os.Stderr, "FileLogWriter(%q): %s\n", w.filename, err)
 					return
 				}
+				w.file.Sync()
 
 				// Update the counts
 				w.maxlines_curlines++
