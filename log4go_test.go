@@ -133,8 +133,8 @@ func TestFileLogWriter(t *testing.T) {
 
 	if contents, err := ioutil.ReadFile(testLogFile); err != nil {
 		t.Errorf("read(%q): %s", testLogFile, err)
-	} else if len(contents) != 50 {
-		t.Errorf("malformed filelog: %q (%d bytes)", string(contents), len(contents))
+	} else if len(string(contents)) != 50 {
+		t.Errorf("malformed filelog: %q (%d characters)", string(contents), len(string(contents)))
 	}
 }
 
@@ -156,8 +156,8 @@ func TestXMLLogWriter(t *testing.T) {
 
 	if contents, err := ioutil.ReadFile(testLogFile); err != nil {
 		t.Errorf("read(%q): %s", testLogFile, err)
-	} else if len(contents) != 185 {
-		t.Errorf("malformed xmllog: %q (%d bytes)", string(contents), len(contents))
+	} else if len(string(contents)) != 185 {
+		t.Errorf("malformed xmllog: %q (%d characters)", string(contents), len(string(contents)))
 	}
 }
 
