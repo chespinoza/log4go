@@ -74,6 +74,22 @@ func NewFileLogWriter(fname string, rotate bool) *FileLogWriter {
 		rotate:   rotate,
 	}
 
+	//check if the file exists ... create if not
+	if _, err := os.Stat(fname); err != nil {
+		if os.IsNotExist(err) {
+			fPath := filepath.Dir(fname)
+			if _, err := os.Stat(fPath); err != nil {
+				if os.IsNotExist(err) {
+					//create the directory
+					if e := os.Mkdir(fPath, os.ModePerm); e != nil {
+						fmt.Errorf("failed to create directory: %v", e)
+					}
+				}
+			}
+			os.Create(fname)
+		}
+	}
+
 	// open the file for the first time
 	if err := w.intRotate(); err != nil {
 		fmt.Fprintf(os.Stderr, "FileLogWriter(%q): %s\n", w.filename, err)
